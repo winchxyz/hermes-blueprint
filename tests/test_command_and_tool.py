@@ -162,3 +162,19 @@ def test_tool_never_raises(app):
     register(ctx, store_factory=boom)
     res = json.loads(ctx.tools["idea_phase"]["handler"]({"action": "status"}, session_id="s1"))
     assert not res["ok"] and "disk gone" in res["error"]
+
+
+def test_profile_set_accepts_top_level_fields_and_json_strings(bp):
+    res = bp.ok("idea_profile", action="set", team="solo", agents=["hermes"], hours_per_day=5)
+    assert res["missing_required"] == []
+    res = bp.ok("idea_profile", action="set", profile='{"days_per_week": 6}')
+    assert res["profile"]["days_per_week"] == 6
+    bad = bp.call("idea_profile", action="set")
+    assert not bad["ok"] and "team" in bad["fields"]
+
+
+def test_state_card_points_to_tool_search(bp):
+    bp.idea("start padel")
+    card = dict(bp.ctx.hooks)["pre_llm_call"](session_id="s1")["context"]
+    assert "tool_search 'blueprint'" in card and "skill_view('hermes-blueprint:blueprint')" in card
+    assert len(card) < 900

@@ -8,6 +8,7 @@ phase reads it. The velocity ledger holds actual hours per finished unit; once a
 """
 from __future__ import annotations
 
+import json
 import statistics
 from typing import Any
 
@@ -151,8 +152,16 @@ class ProfileTool(BoundTool):
 
     def act_set(self, store: Store, project: Project | None, args: dict) -> dict:
         fields = args.get("profile")
+        if isinstance(fields, str):  # some models send the object as a JSON string
+            try:
+                fields = json.loads(fields)
+            except ValueError:
+                fields = None
         if not isinstance(fields, dict) or not fields:
-            raise ToolError("set needs profile: {field: value}")
+            # Accept fields given at the top level too (a common model mistake).
+            fields = {k: v for k, v in args.items() if k in FIELDS}
+        if not fields:
+            raise ToolError("set needs profile: {field: value}", fields=sorted(FIELDS))
         prof = load(store)
         merged = {**prof["fields"], **validate(fields)}
         prof = {"version": prof["version"] + 1, "fields": merged}

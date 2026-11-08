@@ -79,6 +79,7 @@ def state_card(store: Store, project: Project) -> str:
     lines.append("Gate still needs: " + ("; ".join(gap) if gap else "nothing (advance when "
                                          "the user is ready)") + ".")
     lines += [f"- {r}" for r in g["rules"]]
-    lines.append(f"Next: {g['next']}. Method: skill_view('{SKILL}') once, then "
+    lines.append(f"Next: {g['next']} (if the idea_* tools are not loaded: tool_search "
+                 f"'blueprint'). Method: skill_view('{SKILL}') once, then "
                  f"file_path='{g['reference']}'. {LANGUAGE_RULE}")
     return "\n".join(lines)
