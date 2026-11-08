@@ -26,7 +26,7 @@ def test_refuses_newer_schema(tmp_path):
 def test_create_project_starts_in_phase_1(store: Store):
     p = store.create_project("A Telegram bot that books padel courts")
     assert (p.phase, p.status) == (1, "active")
-    assert p.slug == "a-telegram-bot-that-books-padel-courts"
+    assert p.slug == "telegram-bot-that-books-padel-courts"
     assert store.phase_events(p.id)[0][:3] == (None, 1, "start")
 
 

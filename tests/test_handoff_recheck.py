@@ -99,7 +99,8 @@ def test_state_card_only_for_bound_active_projects(bp):
     assert hook(session_id="s1", user_message="hi") is None
     bp.idea("start padel")
     card = hook(session_id="s1", user_message="hi")["context"]
-    assert card.startswith("[Blueprint] Project #1") and "phase 1. Understanding" in card
+    assert card.startswith("[Blueprint] (plugin note, not written by the user) Project #1")
+    assert "phase 1. Understanding" in card and "user's own words" in card
     assert "references/1-understanding.md" in card and len(card) < 900
     assert hook(session_id="other") is None
     assert hook() is None

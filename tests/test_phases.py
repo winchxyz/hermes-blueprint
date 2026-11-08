@@ -117,3 +117,13 @@ class TestValidateRecord:
             phases.validate_record("choice", {"variant": "Nope", "reason": "r"}, p, store)
         ok = {"variant": "web", "reason": "cheapest to test"}
         assert phases.validate_record("choice", ok, p, store) == ok
+
+
+def test_slugs_keep_whole_words():
+    from hermes_blueprint.store import slugify
+
+    s = slugify("a Chrome extension that turns long GitHub PR threads into a 5-line summary")
+    assert s == "chrome-extension-that-turns-long-github"
+    assert slugify("Ünïcode only ☃") == "n-code-only"
+    assert slugify("!!!") == "idea"
+    assert slugify("x" * 60) == "x" * 40

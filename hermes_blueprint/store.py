@@ -156,8 +156,16 @@ class Artifact:
 
 
 def slugify(text: str, limit: int = 40) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-    return (slug[:limit].rstrip("-") or "idea")
+    words = re.sub(r"[^a-z0-9]+", " ", text.lower()).split()
+    if words and words[0] in ("a", "an", "the") and len(words) > 1:
+        words = words[1:]
+    slug = ""
+    for word in words:  # whole words only, never cut one in half
+        candidate = f"{slug}-{word}" if slug else word
+        if len(candidate) > limit:
+            break
+        slug = candidate
+    return slug or (words[0][:limit] if words else "idea")
 
 
 class Store:

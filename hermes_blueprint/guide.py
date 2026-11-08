@@ -61,9 +61,14 @@ def next_step(store: Store, project: Project) -> dict[str, Any]:
             "next": g["next"], "reference": g["reference"]}
 
 
+LANGUAGE_RULE = ("Reply in the language of the user's own words above this note; if they "
+                 "wrote too little to tell, use the language of the project title.")
+
+
 def state_card(store: Store, project: Project) -> str:
     """A compact per-turn reminder (kept well under ~900 characters)."""
-    head = f"[Blueprint] Project #{project.id} \"{project.title}\""
+    head = (f"[Blueprint] (plugin note, not written by the user) Project #{project.id} "
+            f"\"{project.title}\"")
     if project.status == "planned":
         return (f"{head}: plan done. Re-checks: idea_recheck(report). Handoff: the user runs "
                 f"/idea handoff. Method: skill_view('{SKILL}', file_path='references/"
@@ -75,5 +80,5 @@ def state_card(store: Store, project: Project) -> str:
                                          "the user is ready)") + ".")
     lines += [f"- {r}" for r in g["rules"]]
     lines.append(f"Next: {g['next']}. Method: skill_view('{SKILL}') once, then "
-                 f"file_path='{g['reference']}'. Talk in the user's language.")
+                 f"file_path='{g['reference']}'. {LANGUAGE_RULE}")
     return "\n".join(lines)
