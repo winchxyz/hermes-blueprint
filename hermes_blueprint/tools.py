@@ -1,11 +1,10 @@
-"""Model-facing tools. Each handler returns a JSON string and never raises (Hermes contract)."""
+"""``idea_phase``: the project's phase state, free-form artifacts and gated transitions."""
 from __future__ import annotations
 
-import json
-from collections.abc import Callable
 from typing import Any
 
-from . import phases
+from . import guide, phases
+from .common import BoundTool, ToolError
 from .store import Project, Store
 
 IDEA_PHASE_SCHEMA: dict[str, Any] = {
@@ -13,10 +12,10 @@ IDEA_PHASE_SCHEMA: dict[str, Any] = {
     "description": (
         "Blueprint brainstorm: turns a raw idea into a buildable plan. Project phase state "
         "for this chat (Understanding, Context, Generation, Deep dive, Critique, Plan). "
-        "action=status shows the phase and what its gate still needs; action=record stores "
-        "a phase artifact (brief in phase 1, variants in "
-        "3, deepdive and choice in 4); action=advance moves on only when the gate is met; "
-        "action=back returns to an earlier phase with a reason."
+        "action=status shows the phase, what its gate still needs and the next step; "
+        "action=record stores a phase artifact (brief in phase 1, variants in 3, deepdive and "
+        "choice in 4); action=advance moves on only when the gate is met; action=back returns "
+        "to an earlier phase with a reason."
     ),
     "parameters": {
         "type": "object",
@@ -38,14 +37,6 @@ IDEA_PHASE_SCHEMA: dict[str, Any] = {
 }
 
 
-def _ok(**data: Any) -> str:
-    return json.dumps({"ok": True, **data}, ensure_ascii=False)
-
-
-def _err(message: str, **data: Any) -> str:
-    return json.dumps({"ok": False, "error": message, **data}, ensure_ascii=False)
-
-
 def project_view(store: Store, project: Project) -> dict[str, Any]:
     view: dict[str, Any] = {
         "project": {"id": project.id, "slug": project.slug, "title": project.title,
@@ -54,51 +45,37 @@ def project_view(store: Store, project: Project) -> dict[str, Any]:
     }
     if project.status == "active":
         view["gate_missing"] = phases.missing(store, project, project.phase)
+    view["guide"] = guide.next_step(store, project)
     return view
 
 
-class IdeaPhaseTool:
-    def __init__(self, store_factory: Callable[[], Store]) -> None:
-        self._store_factory = store_factory
+class IdeaPhaseTool(BoundTool):
+    def act_status(self, store: Store, project: Project, args: dict) -> dict:
+        return project_view(store, project)
 
-    def __call__(self, args: dict, **kwargs: Any) -> str:
+    def act_record(self, store: Store, project: Project, args: dict) -> dict:
+        kind = args.get("kind") or ""
         try:
-            return self._run(args or {}, kwargs)
-        except Exception as exc:  # never raise into the agent loop
-            return _err(f"{type(exc).__name__}: {exc}")
+            payload = phases.validate_record(kind, args.get("content"), project, store)
+        except ValueError as exc:
+            raise ToolError(str(exc)) from None
+        art = store.add_artifact(project.id, project.phase, kind, phases.RECORD, payload)
+        return {"recorded": {"id": art.id, "kind": kind}, **project_view(store, project)}
 
-    def _run(self, args: dict, kwargs: dict) -> str:
-        store = self._store_factory()
-        session = kwargs.get("session_id") or kwargs.get("session_key") or ""
-        project = store.bound_project(session)
-        if project is None:
-            return _err("No blueprint project in this chat. Ask the user to run "
-                        "/idea start <idea> or /idea resume <id>.")
-        action = args.get("action")
-        if action == "status":
-            return _ok(**project_view(store, project))
-        if action == "record":
-            kind = args.get("kind") or ""
-            try:
-                payload = phases.validate_record(kind, args.get("content"), project, store)
-            except ValueError as exc:
-                return _err(str(exc))
-            art = store.add_artifact(project.id, project.phase, kind, phases.RECORD, payload)
-            return _ok(recorded={"id": art.id, "kind": kind}, **project_view(store, project))
-        if action == "advance":
-            try:
-                project = phases.advance(store, project, args.get("reason") or "advance")
-            except phases.GateClosed as exc:
-                return _err(str(exc), missing=exc.items, **project_view(store, project))
-            except ValueError as exc:
-                return _err(str(exc))
-            return _ok(**project_view(store, project))
-        if action == "back":
-            target, reason = args.get("phase"), (args.get("reason") or "").strip()
-            if not isinstance(target, int) or target >= project.phase:
-                return _err("back needs a phase number lower than the current one")
-            if not reason:
-                return _err("back needs a reason (it is logged)")
-            project = phases.go_to(store, project, target, f"back: {reason}")
-            return _ok(**project_view(store, project))
-        return _err(f"unknown action {action!r}")
+    def act_advance(self, store: Store, project: Project, args: dict) -> dict:
+        try:
+            project = phases.advance(store, project, args.get("reason") or "advance")
+        except phases.GateClosed as exc:
+            raise ToolError(str(exc), missing=exc.items, **project_view(store, project)) from None
+        except ValueError as exc:
+            raise ToolError(str(exc)) from None
+        return project_view(store, project)
+
+    def act_back(self, store: Store, project: Project, args: dict) -> dict:
+        target, reason = args.get("phase"), (args.get("reason") or "").strip()
+        if not isinstance(target, int) or target >= project.phase:
+            raise ToolError("back needs a phase number lower than the current one")
+        if not reason:
+            raise ToolError("back needs a reason (it is logged)")
+        project = phases.go_to(store, project, target, f"back: {reason}")
+        return project_view(store, project)

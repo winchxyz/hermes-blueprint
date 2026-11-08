@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-blueprint"
-version = "0.0.1"
+version = "0.1.0"
 description = "Turn a raw idea into a plan you can build, inside Hermes: sourced research, a forced critique, calibrated estimates, a kanban handoff and scheduled re-checks (Hermes Agent plugin)."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,6 +19,9 @@ Homepage = "https://github.com/winchxyz/hermes-blueprint"
 
 [tool.setuptools]
 packages = ["hermes_blueprint"]
+
+[tool.setuptools.package-data]
+hermes_blueprint = ["skills/*/*.md", "skills/*/references/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

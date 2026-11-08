@@ -1,8 +1,8 @@
-# Architecture (draft for day 1)
+# Architecture
 
 **hermes-blueprint** (package `hermes_blueprint`, command `/idea`). Evidence for every design
 choice: `docs/research/` (estimation, research-and-judgment, hermes-platform; hermes-agent v0.23.0
-and main 856e7580).
+and main 856e7580). This file describes version 0.1.0 as built; "not built" marks what is left.
 
 ## What it does
 
@@ -26,8 +26,8 @@ not only asked for in prose. That is the "harness" below.
 - Research goes through `idea_research`, which calls Hermes `web_search` / `web_extract` via
   `dispatch_tool` and stores every search (query, time) and every fetched page (URL, fetched text,
   hash, date) in `plugin_db`.
-- A claim is recorded with `idea_claim(text, type, sources=[S#], quote)`. Code checks that the quote
-  appears in the stored page text (after folding case, whitespace, typographic dashes and quotes;
+- A claim is recorded with `idea_research(action="claim", text, type, evidence=[{source: S#,
+  quote}])`. Code checks that each quote (20+ characters) appears in the stored page text (after folding case, whitespace, typographic dashes and quotes;
   `web_extract` returns the page body as text, D7). Only then can the claim be ✅.
 - ✅ is mechanical: fetched page + exact quote + as-of date; numeric or contested claims need two
   **independent** sources (not the same origin republished). A search snippet is a lead, never
@@ -68,8 +68,8 @@ catalog entries plus ~1000 PRs is the reference example. Personal projects run t
 
 ### H5. Builder profile
 
-Stored once per user (`ctx.state`), confirmed at the start of each brainstorm, editable with
-`/idea profile`:
+Stored once per user (`plugin_db`, versioned), confirmed for each project (`idea_profile
+confirm`, part of the phase 1 gate), shown with `/idea profile`:
 
 ```yaml
 team: solo | pair | team(n)
@@ -88,7 +88,8 @@ Ideation, Deep dive, Critic and Planner all receive it.
 
 ### H6. Estimates that match how the builder works
 
-Planner output is validated (`ctx.llm.complete_structured` + code checks) and regenerated if it fails:
+The planner subagent (or the chat agent) submits JSON; `idea_plan` validates it in code and returns
+every problem to fix:
 
 1. Work units of ~0.5-6 h, each classed **A** (agent-bound), **H** (human-bound: decisions, taste,
    device tests, accounts, writing in your voice) or **W** (external wait: store review, API
@@ -107,53 +108,59 @@ hours per project, 57% under 10 h, median 3.1 calendar days; ghost-call v1 relea
 
 ### H7. Velocity ledger (opt-in)
 
-- Sources: our own project timeline (phase times, handoff, kanban run durations via `kanban_show`),
-  Hermes `SessionDB` metadata (read-only, timestamps only, never message text), and an optional
-  import of Claude Code / Codex session timestamps (`estimation.md` Part 2 method: active hours =
-  sum of gaps < 20 min).
-- Disclosed (catalog rule 13), off until the user turns it on.
+- Built: actuals per unit from `/idea recheck` (kanban run times via `kanban_show`, or entered by
+  the user) go into the ledger; once a unit class has n >= 3, its P10/P50/P90 replace the base
+  rates for the planner, and a plan below them needs a note (S7).
+- Not built (D6): Hermes `SessionDB` metadata (read-only, timestamps only, never message text) and
+  an import of Claude Code / Codex session timestamps (`estimation.md` Part 2 method: active hours
+  = sum of gaps < 20 min). Would be disclosed (catalog rule 13) and off by default.
 
 ### H8. Predictions and calibration
 
 Every recommendation and verdict emits scoreable predictions (statement, probability, due date,
 how to resolve) into `plugin_db`. `/idea recheck` resolves the due ones, computes Brier scores
-(model vs user), compares estimates with actuals per unit class, and updates the ledger (smoothing
-α≈0.3, aim for ~80% of actuals inside P10-P90). Small-N warning below ~20 resolved predictions.
+(model vs user), compares estimates with actuals per unit (ratio, inside P10-P90 or not) and adds
+them to the ledger, whose per-class P10/P50/P90 are plain quantiles of the actuals. Small-N warning below ~20 resolved predictions.
 
 ## Hermes surfaces
 
-- **`/idea`**: `start <idea>`, `status`, `phase`, `profile`, `research`, `critique`, `plan`,
-  `handoff`, `recheck`, `log`, `ledger`, `reset`. State lives in code, costs no tokens. Its output
+- **`/idea`**: `start <idea>`, `status`, `phase`, `list`, `resume`, `log`, `stop`, `profile`,
+  `ledger`, `handoff [folder <dir> | cards [--hold]]`, `recheck`. State lives in code, costs no tokens. Its output
   goes to the user only, never to the model (spike, D7), so `start`/`resume` end with "send a
   message to begin"; `ctx.inject_message` is an optional upgrade behind `allow_gateway_injection`.
 - **State key**: tool handlers receive `session_id` (no `conversation_id`); projects are bound to
-  `session_id`, with a `parent_session_id` walk after compression (later unit).
+  `session_id` (not built: a `parent_session_id` walk after compression; `/idea resume` rebinds).
 - **Tool discovery**: with Tool Search on (the default once many tools are attached), plugin
   tools are deferred and found through `tool_search`. Tool descriptions carry searchable words
   and the state card names the exact next tool.
 - **Coordinator skill** (bundled) with per-phase reference files, loaded on demand.
 - **`pre_llm_call` state card** only while a project is active in the conversation (phase, rules
   for that phase, open items), ≤ a few hundred tokens.
-- **Tools** (`idea_*`): `phase` (advance only when the phase's artifacts exist), `research`,
-  `claim`, `verify`, `variants`, `verdict`, `predict`, `plan`, `scaffold`, `handoff`, `recheck`,
-  `profile`.
+- **Tools**, each with an `action` argument: `idea_phase` (status, record, advance, back; advance
+  only when the phase's artifacts exist), `idea_profile`, `idea_research` (plan, search, fetch,
+  read, claim, absence, retract, verify, briefing, ledger), `idea_verdict` (base_rates, commit,
+  show, pushback, revise, redteam), `idea_plan` (rules, draft, submit, show), `idea_recheck`
+  (overview, report, resolve, actual). Writing files and creating cards are slash-command only.
 - **Isolation**: Planner, verifier and optional red-team run via `ctx.subagent_lifecycle.launch`
   with plugin-assembled context packets and an optional model/provider from `config_schema`.
   Confirmed in the spike (D7): fresh context, per-launch model and provider, narrowed toolsets,
   fail-closed on an unknown provider. Every launch uses a unique `correlation_id`
-  (`idea:<project>:<role>:<n>`). Fallbacks stay for hosts without a second provider: `ctx.llm`
-  aux task, then same-model `delegate_task`. Record which model judged what.
+  (`blueprint:<project>:<role>:<uuid>`). Without a configured second model the subagent runs on the main
+  model. If a launch fails, the tool says so: the briefing then states that the verifier did not
+  run, and the planner draft falls back to the chat agent submitting the plan. The model that
+  judged is stored with each verification and red-team run.
 - **Kanban handoff**: `dispatch_tool("kanban_create")` per unit with acceptance criteria in `body`,
-  `parents` for dependencies, assignee from the user's existing profiles, idempotency key
-  `idea:<project>:<unit>` (spike: same key returns the same card; `parents` gates the child;
+  `parents` for dependencies, assignee from the `kanban_assignee` setting, idempotency key
+  `blueprint:<slug>:<unit>` (spike: same key returns the same card; `parents` gates the child;
   `initial_status: "blocked"` holds a card back from workers until the user releases it). Board creation only on request (`hermes kanban boards create`; no tool
   exists for it).
 - **Recheck schedule**: automation blueprint `hermes-blueprint:recheck` (weekly) creating a Hermes
-  cron job; reads `kanban_list`/`kanban_show` for the project's cards.
+  cron job; reads `kanban_show` for the project's cards.
 - **Storage**: `plugin_db` (projects, phases, decisions append-only, claims, sources, predictions,
   estimates, actuals). Markdown export of the project log on request.
-- **Approvals**: `dispatch_tool` skips `pre_tool_call` hooks and middleware, so our tools ask for
-  confirmation themselves (`ask_choice`) before writing files, creating cards or running commands.
+- **Approvals**: `dispatch_tool` skips `pre_tool_call` hooks and middleware, so writing files and
+  creating cards live in `/idea handoff`, which asks (`ask_choice`, or `--yes`) first. The model
+  cannot trigger either.
 
 ## Demo (in the Hermes chat, no Telegram)
 

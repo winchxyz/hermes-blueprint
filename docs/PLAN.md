@@ -40,4 +40,14 @@ rounds (11), demo (12), catalog review (13).
 - Unit 2 done: skeleton with `/idea`, `idea_phase`, code-checked phase gates, SQLite store, 40
   offline tests; CI green (tests on 3.11/3.12, `hermes plugins validate` and `doctor --ci` on
   v0.23.0 and main).
-- Next: unit 3 (methodology) and unit 4 (research ledger) can start; both depend only on 2.
+- Units 3-10 done (version 0.1.0): bundled skill with per-phase references; `idea_research`
+  (claims are an action of it, not a separate tool), `idea_profile`, `idea_verdict`, `idea_plan`,
+  `idea_recheck`; verifier, planner and red-team subagents; `/idea handoff folder|cards`; weekly
+  re-check blueprint; README with disclosure; catalog entry draft (`docs/catalog-entry.yaml`).
+  88 offline tests.
+- Gate after 4 checked on real Hermes: `spike/smoke.py` ran `web_search` + `web_extract` through
+  the registered tools, and a quote from the fetched Hermes kanban docs page passed the check (✅).
+- Not built yet: the SessionDB / session-timestamp import for the velocity ledger (D6 open); the
+  ledger fills from `/idea recheck` actuals and kanban run times.
+- Next: unit 11, the owner runs two real brainstorms (in a normal terminal, not inside the desktop
+  app sandbox), then unit 12, the demo video.

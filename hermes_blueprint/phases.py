@@ -3,8 +3,7 @@
 A gate is a list of artifact requirements. Each requirement names the artifact kind and the
 producers allowed to write it. Kinds that carry the quality harness (research briefing, critic
 verdict, plan) can only come from their dedicated tools, so the model cannot skip them by
-recording a free-text note. Those tools arrive in later build units; until then the gate stays
-closed, which is the intended behaviour.
+recording a free-text note.
 """
 from __future__ import annotations
 
@@ -39,7 +38,8 @@ def _req(kind: str, label: str, *producers: str) -> Requirement:
 
 
 GATES: dict[int, list[Requirement]] = {
-    1: [_req("brief", "problem brief (who, what, why now, constraints)", RECORD)],
+    1: [_req("brief", "problem brief (who, what, why now, constraints)", RECORD),
+        _req("profile_used", "builder profile confirmed for this project", "idea_profile")],
     2: [_req("briefing", "research briefing with source log, coverage and Not verified",
              "idea_research")],
     3: [_req("variants", "at least 3 distinct variants", RECORD)],

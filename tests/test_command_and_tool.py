@@ -17,15 +17,22 @@ def app(store):
     ctx = FakeCtx()
     register(ctx, store_factory=lambda: store)
     cmd = ctx.commands["idea"]["handler"]
-    tool = ctx.tools["idea_phase"]["handler"]
 
     def idea(text: str, session: str = "s1") -> str:
         return cmd(text, session_id=session, session_key="", platform="cli")
 
-    def call(session: str = "s1", **args) -> dict:
-        return json.loads(tool(args, session_id=session, task_id="t"))
+    def call(session: str = "s1", _tool: str = "idea_phase", **args) -> dict:
+        return json.loads(ctx.tools[_tool]["handler"](args, session_id=session, task_id="t"))
 
     return idea, call, store
+
+
+def brief_and_profile(call, session: str = "s1") -> None:
+    """Satisfy the phase 1 gate the way the agent does: brief plus a confirmed profile."""
+    assert call(session, action="record", kind="brief", content="who: club players")["ok"]
+    assert call(session, _tool="idea_profile", action="set",
+                profile={"team": "solo", "agents": ["hermes"], "hours_per_day": 5})["ok"]
+    assert call(session, _tool="idea_profile", action="confirm")["ok"]
 
 
 def test_help_and_unknown(app):
@@ -60,6 +67,9 @@ def test_full_walk_until_research_gate(app):
     idea("start padel")
     assert not call(action="advance")["ok"]
     assert call(action="record", kind="brief", content="who: club players")["ok"]
+    still = call(action="advance")
+    assert not still["ok"] and "builder profile" in still["missing"][0]
+    brief_and_profile(call)
     moved = call(action="advance")
     assert moved["ok"] and moved["phase"]["number"] == 2
     # Phase 2 needs a research briefing from idea_research; record cannot fake it.
@@ -79,7 +89,7 @@ def test_record_rejects_harness_kinds(app):
 def test_back_needs_reason_and_lower_phase(app):
     idea, call, store = app
     idea("start padel")
-    call(action="record", kind="brief", content="b")
+    brief_and_profile(call)
     call(action="advance")
     assert not call(action="back", phase=1)["ok"]
     assert not call(action="back", phase=3, reason="x")["ok"]
@@ -91,7 +101,7 @@ def test_command_phase_jump_respects_gates(app):
     idea, call, _ = app
     idea("start padel")
     assert "not done" in idea("phase 3")
-    call(action="record", kind="brief", content="b")
+    brief_and_profile(call)
     assert "Phase 2. Context" in idea("phase 2 ready")
     assert "Phase 1. Understanding" in idea("phase 1")
 
@@ -128,7 +138,7 @@ def test_variants_and_choice_through_tool(app):
     p = store.bound_project("s1")
     # Skip the research gate the way idea_research will satisfy it.
     store.add_artifact(p.id, 2, "briefing", "idea_research", {"sources": []})
-    call(action="record", kind="brief", content="b")
+    brief_and_profile(call)
     call(action="advance")
     call(action="advance")
     assert not call(action="record", kind="variants", content=VARIANTS[:2])["ok"]

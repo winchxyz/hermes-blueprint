@@ -55,6 +55,78 @@ MIGRATIONS: list[str] = [
         bound_at REAL NOT NULL
     );
     """,
+    # v2: research ledger, predictions, builder profile, kanban cards, velocity ledger.
+    """
+    CREATE TABLE searches (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        query TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        channel TEXT NOT NULL DEFAULT '',
+        results TEXT NOT NULL,
+        at REAL NOT NULL
+    );
+    CREATE TABLE sources (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        url TEXT NOT NULL,
+        domain TEXT NOT NULL,
+        title TEXT NOT NULL DEFAULT '',
+        content TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        truncated INTEGER NOT NULL DEFAULT 0,
+        fetched_at REAL NOT NULL
+    );
+    CREATE TABLE claims (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        text TEXT NOT NULL,
+        type TEXT NOT NULL,
+        label TEXT NOT NULL,
+        evidence TEXT NOT NULL,
+        as_of TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'active',
+        note TEXT NOT NULL DEFAULT '',
+        created_at REAL NOT NULL,
+        updated_at REAL NOT NULL
+    );
+    CREATE TABLE predictions (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        statement TEXT NOT NULL,
+        p_model REAL NOT NULL,
+        p_user REAL,
+        resolve_by TEXT NOT NULL,
+        how TEXT NOT NULL,
+        origin TEXT NOT NULL,
+        outcome INTEGER,
+        resolved_at REAL,
+        created_at REAL NOT NULL
+    );
+    CREATE TABLE kv (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at REAL NOT NULL
+    );
+    CREATE TABLE cards (
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        unit_id TEXT NOT NULL,
+        task_id TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        PRIMARY KEY (project_id, unit_id)
+    );
+    CREATE TABLE actuals (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER,
+        unit_id TEXT NOT NULL,
+        unit_class TEXT NOT NULL,
+        ref_class TEXT NOT NULL DEFAULT '',
+        estimate_p50 REAL,
+        actual REAL NOT NULL,
+        source TEXT NOT NULL,
+        at REAL NOT NULL
+    );
+    """,
 ]
 
 SCHEMA_VERSION = len(MIGRATIONS)
@@ -102,6 +174,28 @@ class Store:
                 self._ready = True
             with conn:
                 yield conn
+
+    def tx(self) -> Any:
+        """One transaction on a short-lived connection (for the domain modules)."""
+        return self._tx()
+
+    def now(self) -> float:
+        return self._clock()
+
+    # key-value (builder profile and other per-user settings) --------------------------------
+
+    def kv_get(self, key: str, default: Any = None) -> Any:
+        with self._tx() as conn:
+            row = conn.execute("SELECT value FROM kv WHERE key = ?", (key,)).fetchone()
+        return json.loads(row[0]) if row else default
+
+    def kv_set(self, key: str, value: Any) -> None:
+        with self._tx() as conn:
+            conn.execute("INSERT INTO kv (key, value, updated_at) VALUES (?, ?, ?)"
+                         " ON CONFLICT(key) DO UPDATE SET value = excluded.value,"
+                         " updated_at = excluded.updated_at",
+                         (key, json.dumps(value, ensure_ascii=False, sort_keys=True),
+                          self._clock()))
 
     # projects -------------------------------------------------------------------------------
 

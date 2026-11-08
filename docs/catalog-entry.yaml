@@ -1,0 +1,24 @@
+# Draft for plugin-catalog/hermes-blueprint.yaml in hermes-agent (PR by the repo owner).
+# Fill `sha` with the full 40-character commit of the release being listed.
+name: hermes-blueprint
+repo: https://github.com/winchxyz/hermes-blueprint
+sha: 0000000000000000000000000000000000000000
+description: "Turn a raw idea into a plan you can build, in six phases with the quality rules enforced in code: research where every verified claim has a quote from a fetched page, a fresh-context fact verifier, a critic that starts from base rates and does not cave to pushback, and a plan split into agent hours, your hours and outside waits, with effort and calendar computed separately. /idea handoff writes a project folder and kanban cards; a weekly re-check scores the predictions and feeds your velocity ledger. Disclosure: researches through Hermes' web_search and web_extract; the verifier, planner and red-team run as Hermes subagents (main model unless you set another in settings); writes files and kanban cards only from /idea handoff after confirmation, files only into an empty folder; stores projects, sources and your builder profile in its own plugin_db; does not read your messages."
+maintainer: winchxyz
+tier: community
+category: tools
+version: "0.1.0"
+docs_url: https://github.com/winchxyz/hermes-blueprint#readme
+capabilities:
+  provides_tools:
+    - idea_phase
+    - idea_profile
+    - idea_research
+    - idea_verdict
+    - idea_plan
+    - idea_recheck
+  provides_hooks:
+    - pre_llm_call
+  provides_middleware: []
+  requires_env: []
+requires_hermes: ">=0.23.0"

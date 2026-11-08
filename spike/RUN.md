@@ -52,3 +52,14 @@ runs, the agent sessions in the real `state.db`.
 Caution: a token refresh during a sandboxed run is saved only to the sandbox copy of
 `auth.json`. Nous refresh tokens are single-use, so the real Hermes may later need
 `hermes auth add nous`.
+
+## Plugin smoke test (`spike/smoke.py`)
+
+Drives the real `hermes-blueprint` plugin inside a real Hermes install without a model turn:
+loads it through Hermes' plugin manager, then calls `/idea` and the `idea_*` tools through the
+tool registry with the real `web_search` / `web_extract` backends, up to a quote-checked claim.
+Link the repository root as `$HERMES_HOME/plugins/hermes-blueprint` (as above), then run it like
+the harness: `"<selected venv>/Scripts/python.exe" "<repo>/spike/smoke.py"`. It writes a small
+project and a builder profile into the plugin's database
+(`$HERMES_HOME/plugin-data/hermes-blueprint/`); delete that folder afterwards if you have no real
+projects there yet. No kanban cards, no subagents, no model tokens.

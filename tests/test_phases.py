@@ -32,6 +32,9 @@ def test_cannot_advance_without_brief(store: Store):
 def test_brief_opens_phase_1(store: Store):
     p = store.create_project("x")
     store.add_artifact(p.id, 1, "brief", phases.RECORD, {"text": "who/what/why"})
+    with pytest.raises(phases.GateClosed, match="builder profile"):
+        phases.advance(store, p)
+    store.add_artifact(p.id, 1, "profile_used", "idea_profile", {"fields": {}})
     assert phases.advance(store, p).phase == 2
 
 
@@ -62,6 +65,7 @@ def test_go_back_is_free_and_logged(store: Store):
 def test_jump_forward_checks_every_gate(store: Store):
     p = store.create_project("x")
     store.add_artifact(p.id, 1, "brief", phases.RECORD, {"text": "b"})
+    store.add_artifact(p.id, 1, "profile_used", "idea_profile", {"fields": {}})
     with pytest.raises(phases.GateClosed) as exc:
         phases.go_to(store, p, 4, "skip")
     assert exc.value.phase == 2

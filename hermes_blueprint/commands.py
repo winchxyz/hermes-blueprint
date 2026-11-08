@@ -1,16 +1,20 @@
 """The ``/idea`` slash command: project state changes and status, no model tokens.
 
 Slash-command output goes to the user, not to the model, so ``start`` and ``resume`` tell the
-user to send a message to begin; the model then sees the project through the ``idea_phase`` tool.
+user to send a message to begin; the model then sees the project through the ``idea_*`` tools.
+The handoff writes outside the plugin's data (a folder, kanban cards), so it lives here, where
+the user types it and confirms it.
 """
 from __future__ import annotations
 
+import os
 import shlex
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
-from . import phases
+from . import handoff, phases, profile, recheck
 from .store import Project, Store
 
 HELP = """/idea: turn a raw idea into a plan you can build.
@@ -22,6 +26,12 @@ HELP = """/idea: turn a raw idea into a plan you can build.
   /idea resume <id|slug>    bind an existing project to this chat
   /idea log                 phase history and recorded artifacts
   /idea stop                unbind this chat (the project is kept)
+  /idea profile             your builder profile (who builds: agents, hours, accounts)
+  /idea handoff             after the plan: what the handoff will create
+  /idea handoff folder <dir>    write README, PLAN, DECISIONS, RESEARCH, AGENTS into <dir>
+  /idea handoff cards [--hold]  create the plan's units as Hermes kanban cards
+  /idea recheck             progress, due predictions, estimate vs actual
+  /idea ledger              your velocity ledger vs the base rates
 """
 
 
@@ -47,8 +57,9 @@ def status_text(store: Store, project: Project) -> str:
 class IdeaCommand:
     """Callable handler for ``ctx.register_command('idea', ...)``."""
 
-    def __init__(self, store_factory: Callable[[], Store]) -> None:
+    def __init__(self, store_factory: Callable[[], Store], ctx: Any = None) -> None:
         self._store_factory = store_factory
+        self._ctx = ctx
 
     def __call__(self, raw_args: str, session_id: str = "", session_key: str = "",
                  **_: Any) -> str:
@@ -63,7 +74,7 @@ class IdeaCommand:
             return f"Unknown subcommand '{sub}'.\n\n{HELP}"
         try:
             return handler(self._store_factory(), key, rest, raw_args or "")
-        except (KeyError, ValueError, phases.GateClosed) as exc:
+        except (KeyError, ValueError, OSError, phases.GateClosed) as exc:
             return f"/idea {sub}: {exc}"
 
     def _cmd_help(self, store: Store, key: str, rest: list[str], raw: str) -> str:
@@ -139,3 +150,147 @@ class IdeaCommand:
             return "No project in this chat."
         store.unbind(key)
         return f"Unbound #{project.id} from this chat. /idea resume {project.id} to return."
+
+    # profile and ledger ------------------------------------------------------------------------
+
+    def _cmd_profile(self, store: Store, key: str, rest: list[str], raw: str) -> str:
+        prof = profile.load(store)
+        if not prof["fields"]:
+            return ("No builder profile yet. In a brainstorm the agent asks for it in phase 1. "
+                    "Fields: " + ", ".join(profile.FIELDS) + ".")
+        lines = [f"Builder profile v{prof['version']}:"]
+        lines += [f"  {k}: {v}" for k, v in sorted(prof["fields"].items())]
+        lines.append("To change it, tell the agent (it calls idea_profile set).")
+        return "\n".join(lines)
+
+    def _cmd_ledger(self, store: Store, key: str, rest: list[str], raw: str) -> str:
+        lines = ["Unit class: P10 / P50 / P90 active hours (basis)"]
+        for r in profile.class_rates(store):
+            lines.append(f"  {r['class']}: {r['p10_h']:g} / {r['p50_h']:g} / {r['p90_h']:g}"
+                         f" ({r['basis']})")
+        lines.append(f"Actuals recorded: {len(profile.actuals(store))}. A class with 3 or more "
+                     "uses your own numbers.")
+        return "\n".join(lines)
+
+    # handoff -----------------------------------------------------------------------------------
+
+    def _confirm(self, question: str, choices: list[dict], flags: set[str]) -> str | None:
+        if "--yes" in flags:
+            return str(choices[0]["value"])
+        ask = getattr(self._ctx, "ask_choice", None)
+        if ask is None:
+            return None
+        try:
+            return ask(question, choices)
+        except Exception:
+            return None
+
+    def _dispatch(self, name: str, args: dict) -> str:
+        if self._ctx is None:
+            raise ValueError("kanban is not available here")
+        return self._ctx.dispatch_tool(name, args)
+
+    def _setting(self, name: str, default: str) -> str:
+        try:
+            value = self._ctx.get_config(name, default) if self._ctx is not None else default
+        except Exception:
+            value = default
+        return str(value or default)
+
+    def _resolve(self, text: str) -> Path:
+        path = Path(os.path.expandvars(text.strip().strip('"'))).expanduser()
+        if path.is_absolute():
+            return path
+        base = ""
+        try:
+            base = self._ctx.session_cwd() if self._ctx is not None else ""
+        except Exception:
+            base = ""
+        return (Path(base) if base else Path.home() / "blueprint-projects") / path
+
+    def _cmd_handoff(self, store: Store, key: str, rest: list[str], raw: str) -> str:
+        project = store.bound_project(key)
+        if project is None:
+            return "No project in this chat."
+        plan = handoff.plan_payload(store, project)
+        if plan is None:
+            return "No validated plan yet: the handoff comes after phase 6."
+        flags = {r for r in rest if r.startswith("--")}
+        args = [r for r in rest if not r.startswith("--")]
+        units = plan["plan"]["units"]
+        assignee = self._setting("kanban_assignee", "default")
+        if not args:
+            counts = {c: sum(u["class"] == c for u in units) for c in "AHW"}
+            return (f"Plan: {len(units)} units ({counts['A']} agent, {counts['H']} yours, "
+                    f"{counts['W']} waits).\n"
+                    "  /idea handoff folder <dir>    project folder for the coding agent\n"
+                    "  /idea handoff cards [--hold]  kanban cards: agent units go to the "
+                    f"'{assignee}' profile; your units and waits are held (blocked) until you "
+                    "mark them done.\n"
+                    "Run folder first so the cards point at it.")
+        if args[0] == "folder":
+            if len(args) < 2:
+                return "Usage: /idea handoff folder <dir>"
+            target = self._resolve(" ".join(args[1:]))
+            files = handoff.scaffold_files(store, project)
+            choice = self._confirm(
+                f"Write {len(files)} files ({', '.join(files)}) to {target}?",
+                [{"value": "write", "label": "Write the files"},
+                 {"value": "cancel", "label": "Cancel"}], flags)
+            if choice is None:
+                return f"Confirm with: /idea handoff folder \"{target}\" --yes"
+            if choice != "write":
+                return "Cancelled."
+            written = handoff.write_scaffold(target, files)
+            store.add_artifact(project.id, project.phase, "scaffold", "idea_handoff",
+                               {"path": str(target), "files": written})
+            return f"Wrote {', '.join(written)} to {target}."
+        if args[0] == "cards":
+            tenant = self._setting("kanban_tenant", "blueprint")
+            choice = self._confirm(
+                f"Create {len(units)} kanban cards for #{project.id} (agent units assigned to "
+                f"'{assignee}')?",
+                [{"value": "create", "label": "Create; agents can start"},
+                 {"value": "hold", "label": "Create all held (blocked)"},
+                 {"value": "cancel", "label": "Cancel"}], flags)
+            if choice is None:
+                return "Confirm with: /idea handoff cards --yes (add --hold to hold them)"
+            if choice == "cancel":
+                return "Cancelled."
+            made = handoff.create_cards(store, project, self._dispatch, assignee=assignee,
+                                        tenant=tenant,
+                                        hold="--hold" in flags or choice == "hold")
+            lines = [f"Kanban cards for #{project.id} (tenant {tenant}):"]
+            for m in made:
+                lines.append(f"  {m['unit']}: " + (f"{m['task_id']} ({m['status']})"
+                                                   if "task_id" in m else f"error {m['error']}"))
+            lines.append("Re-running is safe: the same units return the same cards.")
+            return "\n".join(lines)
+        return "Usage: /idea handoff [folder <dir> | cards [--hold]]"
+
+    # recheck -----------------------------------------------------------------------------------
+
+    def _cmd_recheck(self, store: Store, key: str, rest: list[str], raw: str) -> str:
+        project = store.bound_project(key)
+        if project is None:
+            return "No project in this chat."
+        dispatch = self._dispatch if self._ctx is not None else (lambda n, a: "{}")
+        data = recheck.RecheckTool(lambda: store, dispatch).act_report(store, project, {})
+        lines = [f"#{project.id} {project.title}: re-check"]
+        for u in data["units"]:
+            extra = f", card {u.get('status') or '-'}" if "card" in u else ""
+            if "actual" in u:
+                extra += f", actual {u['actual']:g} vs P50 {u['p50']:g}"
+            lines.append(f"  {u['unit']} {u['title']} ({u['class']}{extra})")
+        s = data["scores"]
+        line = (f"Predictions resolved: {s['resolved']}; due now: "
+                f"{len(data['predictions_due'])}.")
+        if s["brier_model"] is not None:
+            line += f" Brier: model {s['brier_model']}"
+            if s["brier_user"] is not None:
+                line += f", you {s['brier_user']}"
+            line += " (0 is perfect, always-50% scores 0.25)."
+        lines.append(line)
+        lines.append("Send a message (for example 'recheck') and the agent goes through the "
+                     "due predictions and actual hours with you.")
+        return "\n".join(lines)

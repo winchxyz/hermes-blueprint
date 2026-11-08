@@ -1,12 +1,21 @@
 manifest_version: 2
 name: hermes-blueprint
-version: "0.0.1"
-description: "Turn a raw idea into a plan you can build: sourced research, a critic that does not cave, estimates that match how you build, a kanban handoff and re-checks."
+version: "0.1.0"
+description: "Turn a raw idea into a plan you can build: sourced research with quote-checked claims, a critic that does not cave, estimates that match how you build, a kanban handoff and scored re-checks."
 author: winchxyz
 kind: standalone
 license: MIT
 homepage: https://github.com/winchxyz/hermes-blueprint
 requires_hermes: ">=0.23.0"
 tags: [brainstorm, planning, research, kanban, productivity]
-provides_tools: [idea_phase]
-provides_hooks: []
+provides_tools: [idea_phase, idea_profile, idea_research, idea_verdict, idea_plan, idea_recheck]
+provides_hooks: [pre_llm_call]
+config_schema:
+  verifier_model: {type: str, default: "", description: "Model for the independent fact verifier subagent (empty = your main model)."}
+  verifier_provider: {type: str, default: "", description: "Provider for the verifier (must be configured in Hermes; empty = main)."}
+  planner_model: {type: str, default: "", description: "Model for the isolated planner subagent (empty = your main model)."}
+  planner_provider: {type: str, default: "", description: "Provider for the planner (empty = main)."}
+  redteam_model: {type: str, default: "", description: "Model for the optional red-team critic; a different model than the chat gives a more independent view."}
+  redteam_provider: {type: str, default: "", description: "Provider for the red-team critic (empty = main)."}
+  kanban_assignee: {type: str, default: "default", description: "Hermes profile that works the agent units after /idea handoff cards."}
+  kanban_tenant: {type: str, default: "blueprint", description: "Kanban tenant for the cards the handoff creates."}
