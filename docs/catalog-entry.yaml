@@ -1,5 +1,8 @@
 # Draft for plugin-catalog/hermes-blueprint.yaml in hermes-agent (PR by the repo owner).
 # Fill `sha` with the full 40-character commit of the release being listed.
+# For the PR description: `hermes plugins validate` passes; its "private core imports" and
+# "isolation" notes point only at spike/harness.py and spike/smoke.py, local test scripts run
+# by hand against a Hermes checkout. The plugin package (hermes_blueprint/) does not import them.
 name: hermes-blueprint
 repo: https://github.com/winchxyz/hermes-blueprint
 sha: 0000000000000000000000000000000000000000
