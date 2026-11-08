@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-blueprint"
+version = "0.0.1"
+description = "Turn a raw idea into a plan you can build, inside Hermes: sourced research, a forced critique, calibrated estimates, a kanban handoff and scheduled re-checks (Hermes Agent plugin)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "winchxyz"}]
+# Runtime only. Test tools live in requirements-dev.txt, never in an install extra.
+dependencies = [
+]
+
+[project.urls]
+Homepage = "https://github.com/winchxyz/hermes-blueprint"
+
+[tool.setuptools]
+packages = ["hermes_blueprint"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+markers = ["live: needs a real Hermes model and web tools"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]

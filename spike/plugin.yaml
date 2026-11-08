@@ -1,0 +1,10 @@
+manifest_version: 2
+name: idea-spike
+version: "0.0.1"
+description: "Throwaway spike for hermes-blueprint unit 1: checks subagent_lifecycle, dispatch_tool web/kanban and slash output from a real plugin tool."
+author: winchxyz
+kind: standalone
+license: MIT
+requires_hermes: ">=0.23.0"
+provides_tools: [idea_spike]
+provides_hooks: []

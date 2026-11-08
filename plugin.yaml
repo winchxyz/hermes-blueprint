@@ -1,0 +1,12 @@
+manifest_version: 2
+name: hermes-blueprint
+version: "0.0.1"
+description: "Turn a raw idea into a plan you can build: sourced research, a critic that does not cave, estimates that match how you build, a kanban handoff and re-checks."
+author: winchxyz
+kind: standalone
+license: MIT
+homepage: https://github.com/winchxyz/hermes-blueprint
+requires_hermes: ">=0.23.0"
+tags: [brainstorm, planning, research, kanban, productivity]
+provides_tools: [idea_phase]
+provides_hooks: []
