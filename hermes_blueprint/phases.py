@@ -83,13 +83,28 @@ USER_TURN_LABEL = ("a reply from the user in this phase (show the result, ask, a
                    "after they answer; the user can skip with /idea phase <n>)")
 
 
+# Phases whose result the user must see before moving on: a user turn after it was stored.
+# The verdict is the point of the critique: the user reads it and may push back.
+RESULT_SEEN: dict[int, str] = {5: "verdict"}
+RESULT_SEEN_LABEL = ("a reply from the user after they saw the {kind} (show it, end your turn, "
+                     "and advance after they answer; the user can skip with /idea phase <n>)")
+
+
 def user_gap(store: Store, project: Project, phase: int) -> list[str]:
     if phase not in USER_PHASES:
         return []
     counts = store.turn_counts(project.id)
     if not counts:  # the state-card hook never ran (another host): nothing to check against
         return []
-    return [] if counts.get(phase, 0) else [USER_TURN_LABEL]
+    if not counts.get(phase, 0):
+        return [USER_TURN_LABEL]
+    kind = RESULT_SEEN.get(phase)
+    result = store.latest(project.id, kind) if kind else None
+    if result is not None:
+        last = store.last_turn_at(project.id, phase)
+        if last is None or last <= result.created_at:
+            return [RESULT_SEEN_LABEL.format(kind=kind)]
+    return []
 
 
 def open_items(store: Store, project: Project) -> list[str]:

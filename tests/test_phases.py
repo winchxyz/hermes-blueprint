@@ -163,3 +163,13 @@ def test_the_user_can_still_skip_ahead(store: Store):
         _ready(store, p, n)
     p = phases.go_to(store, p, 4, "user skipped")  # /idea phase 4: artifacts only
     assert p.phase == 4
+
+
+def test_the_user_sees_the_verdict_before_the_plan(store: Store):
+    p = _project_in(store, 5)
+    store.record_turn(p.id, 5, "t1")              # "run the critique"
+    _ready(store, p, 5)                           # the verdict is committed in that turn
+    with pytest.raises(phases.GateClosed, match="after they saw the verdict"):
+        phases.advance(store, p)
+    store.record_turn(p.id, 5, "t2")              # the user read it and answered
+    assert phases.advance(store, p).phase == 6

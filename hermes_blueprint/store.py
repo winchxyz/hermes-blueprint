@@ -222,6 +222,12 @@ class Store:
             conn.execute("INSERT OR IGNORE INTO turns (project_id, phase, turn_id, at)"
                          " VALUES (?, ?, ?, ?)", (project_id, phase, turn_id, self._clock()))
 
+    def last_turn_at(self, project_id: int, phase: int) -> float | None:
+        with self._tx() as conn:
+            row = conn.execute("SELECT MAX(at) FROM turns WHERE project_id = ? AND phase = ?",
+                               (project_id, phase)).fetchone()
+        return row[0] if row and row[0] is not None else None
+
     def turn_counts(self, project_id: int) -> dict[int, int]:
         """User turns seen per phase; empty when the hook never ran for this project."""
         with self._tx() as conn:

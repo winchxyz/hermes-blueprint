@@ -91,6 +91,23 @@ Tools the agent uses: `idea_phase`, `idea_profile`, `idea_research`, `idea_verdi
 The weekly re-check is an automation blueprint: create it from the Hermes automations catalog
 (`hermes-blueprint:recheck`, Mondays 09:00 by default).
 
+## Which model
+
+The rules hold on any model that can call tools: no ✅ without a fetched quote, gates, the
+pre-committed verdict, the plan checks. How deep the research goes and how good the judgment is
+comes from the model, so the stronger the model, the better the result. In our dry runs on the
+same idea:
+
+- a small free model kept the gates but dropped the profile the user had typed and filled in
+  defaults, and its research stayed shallow;
+- a larger model (still on the free tier) ran all six phases in about an hour: 17 searches, 28
+  pages read, 19 sourced claims, 2 overstated claims caught by the verifier and rewritten, a
+  premortem tied to the evidence, and a plan of 8 agent hours and about 5 of yours over roughly
+  two weeks of calendar, mostly the teammates' trial.
+
+For a decision you care about, use a frontier model. A free model is fine for trying it out.
+The verifier, planner and red team can run on a different model (see Settings).
+
 ## Settings
 
 Under `plugins.entries.hermes-blueprint.settings` (all optional):
