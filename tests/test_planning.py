@@ -149,6 +149,6 @@ def test_lists_sent_as_json_strings_are_parsed_and_s1_names_the_unit_ids():
     assert [u["id"] for u in clean["units"]][0] == "U1"
     big = plugin_plan(units=[unit("U1", "A", 5, 12, 30, ref_class="core_engine"),
                              unit("U2", "H", 0.5, 1, 2, depends_on=["U1"])])
-    assert "one of U1, U2" in problems(big)
+    assert "(an agent unit: U1)" in problems(big)
     clean, _ = check({**big, "effort_driver": "u1", "scope_reasons": ["one big unit"]})
     assert clean["effort_driver"] == "U1"

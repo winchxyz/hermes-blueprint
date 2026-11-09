@@ -182,10 +182,11 @@ def validate_plan(plan: Any, prof: dict[str, Any], rates: list[dict[str, Any]],
     driver = str(plan.get("effort_driver") or "").strip()
     if driver.upper() in by_id and driver not in by_id:
         driver = driver.upper()
-    if shape == "single_artifact" and a_p50 > SINGLE_ARTIFACT_A_P50 and driver not in by_id:
+    a_ids = [u["id"] for u in a_units]
+    if shape == "single_artifact" and a_p50 > SINGLE_ARTIFACT_A_P50 and driver not in a_ids:
         problems.append(f"S1: a single artifact with {a_p50:g} agent hours (more than "
                         f"{SINGLE_ARTIFACT_A_P50:g}); set effort_driver to the id of the unit that "
-                        f"causes it (one of {', '.join(by_id)}), or split the scope")
+                        f"causes it (an agent unit: {', '.join(a_ids)}), or split the scope")
     reasons = [str(r) for r in plan.get("scope_reasons") or [] if str(r).strip()]
     if a_p50 > S2_A_P50 and not reasons:
         problems.append(f"S2: {a_p50:g} agent hours needs scope_reasons, or re-scope")
