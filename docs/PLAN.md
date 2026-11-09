@@ -40,6 +40,9 @@ rounds (11), demo (12), catalog review (13).
 - Unit 2 done: skeleton with `/idea`, `idea_phase`, code-checked phase gates, SQLite store, 40
   offline tests; CI green (tests on 3.11/3.12, `hermes plugins validate` and `doctor --ci` on
   v0.23.0 and main).
+- Version 0.2.0 (after end-to-end dry runs in a real Hermes agent): phases that need the user
+  close only after a user reply (the verdict only after the user saw it); lenient plan and profile
+  arguments; handoff brief as Markdown; dev spike scripts kept out of the published repo.
 - Units 3-10 done (version 0.1.0): bundled skill with per-phase references; `idea_research`
   (claims are an action of it, not a separate tool), `idea_profile`, `idea_verdict`, `idea_plan`,
   `idea_recheck`; verifier, planner and red-team subagents; `/idea handoff folder|cards`; weekly

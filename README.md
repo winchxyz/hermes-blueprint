@@ -1,5 +1,7 @@
 # hermes-blueprint
 
+![hermes-blueprint: six phases from a raw idea to a plan you can build](docs/banner.png)
+
 Turn a raw idea into a plan you can build, inside the Hermes chat.
 
 Most "brainstorm" prompts ask the model to be rigorous, and the model often is not: claims without
