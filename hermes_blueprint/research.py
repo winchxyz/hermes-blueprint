@@ -588,7 +588,9 @@ def render_briefing(store: Store, project: Project, summary: str, args: dict, pl
     for c in all_claims:
         for e in c["evidence"]:
             if "source" in e:
-                used.setdefault(e["source"], []).append(f"C{c['id']}")
+                ids = used.setdefault(e["source"], [])
+                if f"C{c['id']}" not in ids:  # a claim may quote one page twice
+                    ids.append(f"C{c['id']}")
     for sid, s in srcs.items():
         title = (s["title"] or s["url"]).replace("|", "/")[:80]
         out.append(f"| S{sid} | [{title}]({s['url']}) | {_date(s['fetched_at'])} | "
@@ -623,7 +625,8 @@ def render_briefing(store: Store, project: Project, summary: str, args: dict, pl
             out.append(f"- C{c['id']} retracted: {c['text']} ({c['note']})")
         elif c["label"] == "absent":
             where = "; ".join(f"{w['channel']}: \"{w['query']}\"" for w in c["evidence"])
-            out.append(f"- C{c['id']} absence, not provable: {c['text']}. Looked in: {where}")
+            out.append(f"- C{c['id']} absence, not provable: {c['text'].rstrip('.')}. "
+                       f"Looked in: {where}")
         else:
             out.append(f"- C{c['id']} {claim_tag(c)} {c['text']}"
                        + (f" ({c['note']})" if c["note"] else ""))

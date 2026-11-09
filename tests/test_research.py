@@ -127,3 +127,27 @@ def test_a_missing_web_backend_is_an_error_not_an_empty_success(bp):
     bp.ctx.backend = lambda name, args: '{"error": "Unknown tool: web_extract"}'
     res = bp.call("idea_research", action="fetch", urls=["https://nowhere.example"])
     assert not res["ok"] and "Unknown tool: web_extract" in res["error"]
+
+
+def test_source_log_lists_each_claim_once_and_absence_reads_cleanly(bp):
+    bp.phase1()
+    bp.gather()
+    bp.ok("idea_research", action="claim", text="Playtomic covers many countries",
+          type="competitor_exists", evidence=[
+              {"source": "S3", "quote": "book padel courts online in 40 countries"},
+              {"source": "S3", "quote": "book padel courts online in 40 countries"}])
+    from hermes_blueprint import research
+    project = bp.store.bound_project("s1")
+    ids = [s["id"] for s in research.searches(bp.store, project.id)
+           if s["purpose"] == "competitor"]
+    bp.ok("idea_research", action="absence", text="No padel bot for Hermes exists.", searches=ids)
+    bp.runner.replies["verifier"] = (
+        '{"claims": [' + ", ".join(f'{{"id": "C{n}", "verdict": "supported", "original": true}}'
+                                   for n in range(1, 5)) + "]}")
+    bp.ok("idea_research", action="verify")
+    md = bp.ok("idea_research", action="briefing",
+               summary="Bookings grow [C1]; Playtomic exists [C2]; phones rule [C3].",
+               unknowns=["club willingness to pay"])["markdown"]
+    row = next(line for line in md.splitlines() if line.startswith("| S3 "))
+    assert row.endswith("| C2, C4 |")
+    assert "exists. Looked in:" in md and ".. Looked" not in md
