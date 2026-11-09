@@ -59,6 +59,9 @@ If a tool is not in your list, find it with tool search ("blueprint idea researc
    Months exist only in calendar time, from named waits.
 8. **Side effects need the user.** Files and kanban cards are created only by `/idea handoff`,
    which the user types. Tell them the command; do not create them yourself.
+9. **Only through the tools.** Never read or write the plugin's database or import its code from
+   a terminal or script. If a tool refuses or rejects the arguments, read the error, fix the
+   call and retry; if it still fails, tell the user. A gate passed around the tools is not met.
 
 ## When the user wants to skip
 

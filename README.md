@@ -56,6 +56,9 @@ weekly re-check scores the predictions and compares estimates with what really h
 - **Calibration over time.** Predictions get Brier scores (model vs you). Actual hours per unit go
   into your velocity ledger, which replaces the generic base rates once a class has 3 or more
   data points.
+- **Limits.** The rules hold for everything that goes through the plugin's tools. An agent that
+  also has a terminal could edit the plugin's SQLite database directly; the method skill forbids
+  it, and Hermes' command approvals are the guard.
 
 ## Install
 
