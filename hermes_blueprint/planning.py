@@ -319,6 +319,11 @@ def compute(units: list[dict], order: list[str], prof: dict[str, Any]) -> dict[s
     return out
 
 
+def _clause(text: Any) -> str:
+    """A model-written sentence ready to sit inside ours: no trailing period."""
+    return str(text).strip().rstrip(".").rstrip()
+
+
 def render_plan(project: Project, plan: dict, computed: dict, drafted_by: str) -> str:
     unit_word = {"A": "h", "H": "h", "W": "d"}
     lines = [f"# Plan: {project.title}", "",
@@ -342,11 +347,13 @@ def render_plan(project: Project, plan: dict, computed: dict, drafted_by: str) -
               "**Top calendar drivers:** " + "; ".join(computed["calendar_drivers"]) + ".",
               "", "## Gates", ""]
     for g in plan["gates"]:
-        lines.append(f"- After {g.get('after') or 'start'}: {g['check']}. Kill or pivot if "
-                     f"{g['kill_if']}.")
+        kill = _clause(g["kill_if"])
+        kill = kill[:1].lower() + kill[1:] if kill[1:2].islower() else kill
+        lines.append(f"- After {g.get('after') or 'start'}: {_clause(g['check'])}. Kill or "
+                     f"pivot if {kill}.")
     if plan.get("scope_reasons"):
         lines += ["", "Why this is bigger than a quick build: "
-                  + "; ".join(plan["scope_reasons"]) + "."]
+                  + "; ".join(_clause(r) for r in plan["scope_reasons"]) + "."]
     return "\n".join(lines) + "\n"
 
 

@@ -179,3 +179,14 @@ def test_a_draft_that_breaks_validation_is_returned_not_lost(bp, monkeypatch):
     res = bp.ok("idea_plan", action="draft")
     assert res["draft"] == "needs fixes" and res["plan"]["units"]
     assert "AttributeError" in res["problems"][0]
+
+
+def test_rendered_gates_have_no_double_periods():
+    plan = plugin_plan(gates=[{"after": "U2", "check": "A real call works.",
+                               "kill_if": "Any call is refused."}],
+                       scope_reasons=["U2 is novel."])
+    clean, computed = check(plan)
+    project = type("P", (), {"title": "T"})()
+    md = planning.render_plan(project, clean, computed, "test")
+    assert "- After U2: A real call works. Kill or pivot if any call is refused." in md
+    assert "U2 is novel." in md and ".." not in md
