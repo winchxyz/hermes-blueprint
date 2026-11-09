@@ -25,7 +25,9 @@ entry among hermes-x-bookmarks, this plugin and the game-master idea.
 - D7 (2026-11-08, unit 1 spike, real runs on Hermes v0.23.0 `2bd378ed`, Windows, Nous free
   tier). Method: the throwaway plugin `spike/` was loaded into a real `AIAgent` turn
   (`spike/harness.py`; why: see `spike/RUN.md`) and the model called its tool. Raw JSON stays
-  local in `spike/results/` (gitignored). Results:
+  local in `spike/results/` (gitignored). The spike scripts were later removed from the published
+  repo: to load a plugin in process they patch Hermes internals, which a listed plugin must not
+  ship (catalog rule 9). Results:
   - **`ctx.subagent_lifecycle.launch` works from a plugin tool handler** during a turn. The child
     gets only `goal` + `context`: asked to echo a codeword from `context` and any word from the
     parent chat, it returned the codeword and `PARENT=NONE`. Per-launch `model` works

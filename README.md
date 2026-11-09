@@ -143,8 +143,8 @@ python -m ruff check .
 ```
 
 Tests run offline against fakes of the Hermes plugin context, web tools, kanban and subagents.
-`spike/smoke.py` drives the registered command and tools inside a real Hermes install (real web
-tools, no model turn). Design notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+Scripts that drive the plugin inside a real Hermes install patch Hermes internals to load it in
+process, so they are kept out of this repository. Design notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/PLAN.md](docs/PLAN.md), [docs/DECISIONS.md](docs/DECISIONS.md), evidence in
 [docs/research/](docs/research/).
 

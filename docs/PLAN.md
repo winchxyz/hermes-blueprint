@@ -45,7 +45,7 @@ rounds (11), demo (12), catalog review (13).
   `idea_recheck`; verifier, planner and red-team subagents; `/idea handoff folder|cards`; weekly
   re-check blueprint; README with disclosure; catalog entry draft (`docs/catalog-entry.yaml`).
   88 offline tests.
-- Gate after 4 checked on real Hermes: `spike/smoke.py` ran `web_search` + `web_extract` through
+- Gate after 4 checked on real Hermes: a local smoke script (not published) ran `web_search` + `web_extract` through
   the registered tools, and a quote from the fetched Hermes kanban docs page passed the check (✅).
 - Not built yet: the SessionDB / session-timestamp import for the velocity ledger (D6 open); the
   ledger fills from `/idea recheck` actuals and kanban run times.

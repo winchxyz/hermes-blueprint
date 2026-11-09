@@ -14,7 +14,5 @@ build/
 # local exports and OAuth tokens from manual runs
 out/
 tokens*.json
-# spike output (raw JSON from a real Hermes run)
-spike/results/
 # local-only notes, never published
 .local/
