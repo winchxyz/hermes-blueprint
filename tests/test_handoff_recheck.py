@@ -141,3 +141,11 @@ def test_every_tool_never_raises(store):
     for name, entry in ctx.tools.items():
         res = json.loads(entry["handler"]({"action": "status"}, session_id="s1"))
         assert not res["ok"] and "disk gone" in res["error"], name
+
+
+def test_the_brief_reads_as_markdown_not_json():
+    from hermes_blueprint.handoff import _text
+    out = _text({"why_now": "cheap LLMs", "who": "me", "constraints": ["no server", "free"]})
+    assert out.splitlines() == ["- **Who:** me", "- **Why now:** cheap LLMs",
+                                "- **Constraints:**", "  - no server", "  - free"]
+    assert _text({"text": "plain"}) == "plain"

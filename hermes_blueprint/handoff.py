@@ -37,7 +37,8 @@ def scaffold_files(store: Store, project: Project) -> dict[str, str]:
         choice_text = f"{choice.payload.get('variant')}: {choice.payload.get('reason')}"
     files["README.md"] = "\n".join([
         f"# {project.title}", "",
-        project.idea, "",
+        *([project.idea, ""] if project.idea.strip().lower() != project.title.strip().lower()
+          else []),
         f"**Chosen direction:** {choice_text or '-'}", "",
         f"**Thesis:** {v.get('thesis', '-')}", "",
         f"**Critic verdict:** {v.get('verdict', '-')} (P(success) {v.get('p_success', '-')}, "
@@ -89,10 +90,31 @@ def scaffold_files(store: Store, project: Project) -> dict[str, str]:
     return files
 
 
+BRIEF_ORDER = ("who", "problem", "idea", "not", "why_now", "success", "constraints", "kind")
+
+
 def _text(payload: Any) -> str:
+    """A recorded artifact as Markdown: a text field as is, an object as labelled lines."""
     if isinstance(payload, dict) and set(payload) == {"text"}:
         return str(payload["text"])
-    return json.dumps(payload, ensure_ascii=False, indent=1)
+    if not isinstance(payload, dict):
+        return json.dumps(payload, ensure_ascii=False, indent=1)
+    keys = [k for k in BRIEF_ORDER if k in payload] + sorted(k for k in payload
+                                                             if k not in BRIEF_ORDER)
+    lines = []
+    for key in keys:
+        value = payload[key]
+        label = key.replace("_", " ").capitalize()
+        if isinstance(value, list):
+            lines.append(f"- **{label}:**")
+            lines += [f"  - {_inline(item)}" for item in value]
+        elif value not in (None, ""):
+            lines.append(f"- **{label}:** {_inline(value)}")
+    return "\n".join(lines)
+
+
+def _inline(value: Any) -> str:
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
 def write_scaffold(target: Path, files: dict[str, str]) -> list[str]:
