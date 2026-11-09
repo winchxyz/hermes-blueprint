@@ -95,6 +95,14 @@ def _as_object(value: Any) -> Any:
     return value
 
 
+def _as_list(value: Any) -> list:
+    """A list field as a list: a JSON string is parsed, a lone value becomes one item."""
+    value = _as_object(value)
+    if value is None or value == "":
+        return []
+    return list(value) if isinstance(value, (list, tuple)) else [value]
+
+
 def plan_from_args(args: dict) -> Any:
     """The plan from tool args: ``plan`` (object or JSON string), a doubly wrapped
     ``{"plan": {"plan": ...}}``, or the plan's keys given at the top level."""
@@ -145,10 +153,12 @@ def validate_plan(plan: Any, prof: dict[str, Any], rates: list[dict[str, Any]],
                 raise ToolError(f"{uid}: an estimate is a range (S4); p90 must exceed p10")
             unit = {"id": uid, "title": str(u.get("title") or "").strip(), "class": cls,
                     "p10": p10, "p50": p50, "p90": p90,
-                    "depends_on": [str(d) for d in u.get("depends_on") or []],
+                    "depends_on": [str(d).strip() for d in _as_list(u.get("depends_on"))
+                                   if str(d).strip()],
                     "start_now": bool(u.get("start_now")),
-                    "acceptance": [str(a) for a in u.get("acceptance") or [] if str(a).strip()],
-                    "multipliers": list(u.get("multipliers") or []),
+                    "acceptance": [str(a) for a in _as_list(u.get("acceptance"))
+                                   if str(a).strip()],
+                    "multipliers": _as_list(u.get("multipliers")),
                     "novel": bool(u.get("novel")), "note": str(u.get("note") or "").strip(),
                     "ref_class": str(u.get("ref_class") or "")}
             units.append(unit)
@@ -215,9 +225,10 @@ def _check_a_unit(unit: dict, rate_by: dict, ledger: dict) -> None:
     rate = rate_by[unit["ref_class"]]
     factor = 1.0
     for m in unit["multipliers"]:
-        name = (m or {}).get("name")
-        if name not in base_rates.MULTIPLIERS or not str((m or {}).get("reason") or "").strip():
-            raise ToolError(f"{uid}: multipliers need a known name "
+        m = m if isinstance(m, dict) else {"name": str(m or "").strip()}
+        name = m.get("name")
+        if name not in base_rates.MULTIPLIERS or not str(m.get("reason") or "").strip():
+            raise ToolError(f"{uid}: each multiplier is {{name, reason}} with a known name "
                             f"({', '.join(base_rates.MULTIPLIERS)}) and a reason")
         factor *= base_rates.MULTIPLIERS[name][1]
     if unit["p50"] > rate["p90_h"] * factor:
@@ -427,6 +438,9 @@ class PlanTool(BoundTool):
         except ToolError as exc:
             return {"draft": "needs fixes", "problems": exc.data.get("problems", [str(exc)]),
                     "plan": draft, "next": "Fix the problems and submit the plan."}
+        except Exception as exc:  # never lose the planner's work to a malformed field
+            return {"draft": "needs fixes", "problems": [f"{type(exc).__name__}: {exc}"],
+                    "plan": draft, "next": "Fix the malformed fields and submit the plan."}
 
     def act_submit(self, store: Store, project: Project, args: dict) -> dict:
         require_phase(project, 6, what="the plan")

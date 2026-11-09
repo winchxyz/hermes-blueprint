@@ -152,3 +152,30 @@ def test_lists_sent_as_json_strings_are_parsed_and_s1_names_the_unit_ids():
     assert "(an agent unit: U1)" in problems(big)
     clean, _ = check({**big, "effort_driver": "u1", "scope_reasons": ["one big unit"]})
     assert clean["effort_driver"] == "U1"
+
+
+def test_loose_unit_fields_are_coerced_or_reported_not_crashed():
+    plan = plugin_plan()
+    plan["units"][1] = unit("U2", "A", 0.5, 1.5, 4, ref_class="api_integration",
+                            depends_on="U1", acceptance="a real call works",
+                            multipliers=["unfamiliar_toolchain"])
+    assert "each multiplier is {name, reason}" in problems(plan)
+    plan["units"][1]["multipliers"] = []
+    clean, _ = check(plan)
+    u2 = next(u for u in clean["units"] if u["id"] == "U2")
+    assert u2["depends_on"] == ["U1"] and u2["acceptance"] == ["a real call works"]
+
+
+def test_a_draft_that_breaks_validation_is_returned_not_lost(bp, monkeypatch):
+    bp.to_phase5()
+    bp.ok("idea_verdict", **bp.verdict_args())
+    bp.ok("idea_phase", action="advance")
+    bp.runner.replies["planner"] = json.dumps(plugin_plan())
+
+    def boom(*a, **k):
+        raise AttributeError("'str' object has no attribute 'get'")
+
+    monkeypatch.setattr(planning, "validate_plan", boom)
+    res = bp.ok("idea_plan", action="draft")
+    assert res["draft"] == "needs fixes" and res["plan"]["units"]
+    assert "AttributeError" in res["problems"][0]
