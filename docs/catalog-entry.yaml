@@ -7,7 +7,7 @@ description: "Turn a raw idea into a plan you can build, in six phases with the 
 maintainer: winchxyz
 tier: community
 category: tools
-version: "0.2.0"
+version: "0.2.1"
 docs_url: https://github.com/winchxyz/hermes-blueprint#readme
 capabilities:
   provides_tools:

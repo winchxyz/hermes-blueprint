@@ -2,7 +2,7 @@
 
 **hermes-blueprint** (package `hermes_blueprint`, command `/idea`). Evidence for every design
 choice: `docs/research/` (estimation, research-and-judgment, hermes-platform; hermes-agent v0.23.0
-and main 856e7580). This file describes version 0.2.0 as built; "not built" marks what is left.
+and main 856e7580). This file describes version 0.2.1 as built; "not built" marks what is left.
 
 ## What it does
 
