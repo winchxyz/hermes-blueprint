@@ -41,6 +41,8 @@ If a tool is not in your list, find it with tool search ("blueprint idea researc
 
 1. **One phase at a time.** Do not jump to solutions in phase 1 or to a plan before the critique.
    Advance only with `idea_phase(action=advance)`; if the gate refuses, do what it lists.
+   Every phase except research waits for the user: show the result, ask, end your turn, and
+   advance after they answer (the gate checks for their reply).
 2. **No source, no ✅.** A fact the user will rely on comes from a fetched page with an exact quote
    (`idea_research claim`). Search snippets and your memory are leads (🔍), and you say so. Never
    write a number without a claim id `[C#]` or the word "estimate".

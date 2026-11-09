@@ -127,6 +127,16 @@ MIGRATIONS: list[str] = [
         at REAL NOT NULL
     );
     """,
+    # v3: user turns seen per phase (from the pre_llm_call hook; turn ids only, never the text).
+    """
+    CREATE TABLE turns (
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        phase INTEGER NOT NULL,
+        turn_id TEXT NOT NULL,
+        at REAL NOT NULL,
+        PRIMARY KEY (project_id, phase, turn_id)
+    );
+    """,
 ]
 
 SCHEMA_VERSION = len(MIGRATIONS)
@@ -204,6 +214,20 @@ class Store:
                          " updated_at = excluded.updated_at",
                          (key, json.dumps(value, ensure_ascii=False, sort_keys=True),
                           self._clock()))
+
+    # user turns -----------------------------------------------------------------------------
+
+    def record_turn(self, project_id: int, phase: int, turn_id: str) -> None:
+        with self._tx() as conn:
+            conn.execute("INSERT OR IGNORE INTO turns (project_id, phase, turn_id, at)"
+                         " VALUES (?, ?, ?, ?)", (project_id, phase, turn_id, self._clock()))
+
+    def turn_counts(self, project_id: int) -> dict[int, int]:
+        """User turns seen per phase; empty when the hook never ran for this project."""
+        with self._tx() as conn:
+            rows = conn.execute("SELECT phase, COUNT(*) FROM turns WHERE project_id = ?"
+                                " GROUP BY phase", (project_id,)).fetchall()
+        return {int(phase): int(n) for phase, n in rows}
 
     # projects -------------------------------------------------------------------------------
 

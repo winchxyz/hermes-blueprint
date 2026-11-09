@@ -35,7 +35,7 @@ def make_state_hook(store_factory):
     ``None`` (no tokens) for every other chat. Never raises."""
     from .guide import state_card
 
-    def hook(session_id: str = "", **_: Any):
+    def hook(session_id: str = "", turn_id: str = "", **_: Any):
         if not session_id:
             return None
         try:
@@ -43,6 +43,9 @@ def make_state_hook(store_factory):
             project = store.bound_project(session_id)
             if project is None or project.status not in ("active", "planned"):
                 return None
+            if project.status == "active":
+                # Count the user's turn in this phase: gates that need the user check it.
+                store.record_turn(project.id, project.phase, str(turn_id or store.now()))
             return {"context": state_card(store, project)}
         except Exception:
             return None

@@ -135,7 +135,9 @@ them to the ledger, whose per-class P10/P50/P90 are plain quantiles of the actua
   and the state card names the exact next tool.
 - **Coordinator skill** (bundled) with per-phase reference files, loaded on demand.
 - **`pre_llm_call` state card** only while a project is active in the conversation (phase, rules
-  for that phase, open items), ≤ a few hundred tokens.
+  for that phase, open items), ≤ a few hundred tokens. The same hook records each user turn's
+  id per phase (never the text), and phases 1, 3, 4, 5 and 6 close only after a user turn in
+  them, so a model cannot run several phases in one reply. `/idea phase` still skips ahead.
 - **Tools**, each with an `action` argument: `idea_phase` (status, record, advance, back; advance
   only when the phase's artifacts exist), `idea_profile`, `idea_research` (plan, search, fetch,
   read, claim, absence, retract, verify, briefing, ledger), `idea_verdict` (base_rates, commit,

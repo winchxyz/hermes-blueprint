@@ -21,6 +21,9 @@ missing.
 | 5. Critique | outside view first, pre-committed verdict, premortem, scoreable predictions | stored verdict |
 | 6. Plan | units classed agent / human / wait, P10-P50-P90, effort vs calendar | validated plan |
 
+Phases 1, 3, 4, 5 and 6 also need a reply from you before they close, so the agent cannot
+run through them in one go; research (2) runs on its own. `/idea phase <n>` skips ahead.
+
 Then `/idea handoff` writes a project folder and turns the plan into Hermes kanban cards, and a
 weekly re-check scores the predictions and compares estimates with what really happened.
 

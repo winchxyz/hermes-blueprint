@@ -127,3 +127,39 @@ def test_slugs_keep_whole_words():
     assert slugify("Ünïcode only ☃") == "n-code-only"
     assert slugify("!!!") == "idea"
     assert slugify("x" * 60) == "x" * 40
+
+
+def _ready(store: Store, p, phase: int):
+    for req in phases.GATES[phase]:
+        payload = VARIANTS if req.kind == "variants" else {"variant": "Bot", "reason": "r"}
+        store.add_artifact(p.id, phase, req.kind, sorted(req.producers)[0], payload)
+
+
+def test_user_phases_need_a_user_turn_once_the_hook_runs(store: Store):
+    p = store.create_project("padel booking")
+    store.record_turn(p.id, 1, "t1")              # the user's first message, in phase 1
+    _ready(store, p, 1)
+    p = phases.advance(store, p)                  # phase 1 had a user turn
+    _ready(store, p, 2)
+    p = phases.advance(store, p)                  # research (2) runs on its own
+    assert p.phase == 3
+    _ready(store, p, 3)
+    with pytest.raises(phases.GateClosed, match="a reply from the user"):
+        phases.advance(store, p)                  # same turn: the user has not seen phase 3
+    assert phases.open_items(store, p) == [phases.USER_TURN_LABEL]
+    store.record_turn(p.id, 3, "t2")
+    assert phases.advance(store, p).phase == 4
+
+
+def test_no_turns_recorded_means_no_user_check(store: Store):
+    p = _project_in(store, 4)                     # the hook never ran (tests, other hosts)
+    assert phases.user_gap(store, p, 4) == []
+
+
+def test_the_user_can_still_skip_ahead(store: Store):
+    p = store.create_project("padel booking")
+    store.record_turn(p.id, 1, "t1")
+    for n in (1, 2, 3):
+        _ready(store, p, n)
+    p = phases.go_to(store, p, 4, "user skipped")  # /idea phase 4: artifacts only
+    assert p.phase == 4

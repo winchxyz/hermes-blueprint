@@ -82,11 +82,40 @@ def _num(value: Any, where: str) -> float:
     return n
 
 
+PLAN_KEYS = ("shape", "units", "gates", "effort_driver", "scope_reasons")
+
+
+def _as_object(value: Any) -> Any:
+    """Models sometimes send an object or list as a JSON string; parse it back."""
+    if isinstance(value, str) and value.strip()[:1] in ("{", "["):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+    return value
+
+
+def plan_from_args(args: dict) -> Any:
+    """The plan from tool args: ``plan`` (object or JSON string), a doubly wrapped
+    ``{"plan": {"plan": ...}}``, or the plan's keys given at the top level."""
+    plan = _as_object(args.get("plan"))
+    if isinstance(plan, dict) and "units" not in plan and isinstance(plan.get("plan"), (dict, str)):
+        plan = _as_object(plan["plan"])
+    if plan is None and "units" in args:
+        plan = {k: args[k] for k in PLAN_KEYS if k in args}
+    return plan
+
+
 def validate_plan(plan: Any, prof: dict[str, Any], rates: list[dict[str, Any]],
                   ledger: dict[str, dict[str, Any]]) -> tuple[dict, dict]:
     """Return ``(normalized plan, computed totals)`` or raise ToolError with every problem."""
+    plan = _as_object(plan)
     if not isinstance(plan, dict):
-        raise ToolError("plan must be an object")
+        raise ToolError("plan must be an object: {shape, units, gates, effort_driver, "
+                        "scope_reasons}")
+    for key in ("units", "gates", "scope_reasons"):
+        if isinstance(plan.get(key), str):  # a list sent as a JSON string
+            plan = {**plan, key: _as_object(plan[key])}
     problems: list[str] = []
     shape = plan.get("shape")
     if shape not in SHAPES:
@@ -151,9 +180,12 @@ def validate_plan(plan: Any, prof: dict[str, Any], rates: list[dict[str, Any]],
     computed = compute(units, order, prof) if order is not None else {}
     a_p50 = sum(u["p50"] for u in a_units)
     driver = str(plan.get("effort_driver") or "").strip()
+    if driver.upper() in by_id and driver not in by_id:
+        driver = driver.upper()
     if shape == "single_artifact" and a_p50 > SINGLE_ARTIFACT_A_P50 and driver not in by_id:
-        problems.append(f"S1: a single artifact with {a_p50:g} agent hours; set effort_driver "
-                        "to the unit that causes it, or split the scope")
+        problems.append(f"S1: a single artifact with {a_p50:g} agent hours (more than "
+                        f"{SINGLE_ARTIFACT_A_P50:g}); set effort_driver to the id of the unit that "
+                        f"causes it (one of {', '.join(by_id)}), or split the scope")
     reasons = [str(r) for r in plan.get("scope_reasons") or [] if str(r).strip()]
     if a_p50 > S2_A_P50 and not reasons:
         problems.append(f"S2: {a_p50:g} agent hours needs scope_reasons, or re-scope")
@@ -399,7 +431,7 @@ class PlanTool(BoundTool):
         require_phase(project, 6, what="the plan")
         if verdict.current(store, project) is None:
             raise ToolError("no critic verdict stored; phase 5 comes first")
-        return self._store_plan(store, project, args.get("plan"), "the chat model")
+        return self._store_plan(store, project, plan_from_args(args), "the chat model")
 
     def act_show(self, store: Store, project: Project, args: dict) -> dict:
         art = store.latest(project.id, "plan")

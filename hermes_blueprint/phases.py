@@ -76,11 +76,34 @@ class GateClosed(Exception):
         self.items = items
 
 
+# Phases the user must take part in: the agent may not close them in the turn it entered them.
+# Research (2) may run on its own. Skipping stays possible with /idea phase <n>.
+USER_PHASES = {1, 3, 4, 5, 6}
+USER_TURN_LABEL = ("a reply from the user in this phase (show the result, ask, and advance "
+                   "after they answer; the user can skip with /idea phase <n>)")
+
+
+def user_gap(store: Store, project: Project, phase: int) -> list[str]:
+    if phase not in USER_PHASES:
+        return []
+    counts = store.turn_counts(project.id)
+    if not counts:  # the state-card hook never ran (another host): nothing to check against
+        return []
+    return [] if counts.get(phase, 0) else [USER_TURN_LABEL]
+
+
+def open_items(store: Store, project: Project) -> list[str]:
+    """Everything the current phase still needs, artifacts and the user's turn."""
+    return (missing(store, project, project.phase)
+            + user_gap(store, project, project.phase))
+
+
 def advance(store: Store, project: Project, reason: str = "advance") -> Project:
-    """Move to the next phase if the current phase's gate is met; finishing 6 marks it planned."""
+    """Move to the next phase if the current phase's gate is met and the user took part in it;
+    finishing 6 marks the project planned."""
     if project.status != "active":
         raise ValueError(f"project is {project.status}, not active")
-    gap = missing(store, project, project.phase)
+    gap = open_items(store, project)
     if gap:
         raise GateClosed(project.phase, gap)
     if project.phase == LAST_PHASE:

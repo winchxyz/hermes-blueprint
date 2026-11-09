@@ -44,7 +44,7 @@ def project_view(store: Store, project: Project) -> dict[str, Any]:
         "phase": {"number": project.phase, "name": phases.PHASES[project.phase]},
     }
     if project.status == "active":
-        view["gate_missing"] = phases.missing(store, project, project.phase)
+        view["gate_missing"] = phases.open_items(store, project)
     view["guide"] = guide.next_step(store, project)
     return view
 

@@ -57,7 +57,7 @@ def next_step(store: Store, project: Project) -> dict[str, Any]:
                         "folder); later idea_recheck(report).",
                 "reference": "references/recheck.md"}
     g = PHASE_GUIDE[project.phase]
-    return {"missing": phases.missing(store, project, project.phase), "rules": g["rules"],
+    return {"missing": phases.open_items(store, project), "rules": g["rules"],
             "next": g["next"], "reference": g["reference"]}
 
 
@@ -74,7 +74,7 @@ def state_card(store: Store, project: Project) -> str:
                 f"/idea handoff. Method: skill_view('{SKILL}', file_path='references/"
                 "recheck.md').")
     g = PHASE_GUIDE[project.phase]
-    gap = phases.missing(store, project, project.phase)
+    gap = phases.open_items(store, project)
     lines = [f"{head}, phase {phases.phase_name(project.phase)}."]
     lines.append("Gate still needs: " + ("; ".join(gap) if gap else "nothing (advance when "
                                          "the user is ready)") + ".")

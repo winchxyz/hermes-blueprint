@@ -43,7 +43,7 @@ def status_text(store: Store, project: Project) -> str:
     lines = [f"#{project.id} {project.title} [{project.slug}]",
              f"Status: {project.status}. Phase {phases.phase_name(project.phase)}."]
     if project.status == "active":
-        gap = phases.missing(store, project, project.phase)
+        gap = phases.open_items(store, project)
         if gap:
             lines.append("To finish this phase: " + "; ".join(gap) + ".")
         else:

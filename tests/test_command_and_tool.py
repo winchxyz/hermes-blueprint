@@ -178,3 +178,23 @@ def test_state_card_points_to_tool_search(bp):
     card = dict(bp.ctx.hooks)["pre_llm_call"](session_id="s1")["context"]
     assert "tool_search 'blueprint'" in card and "skill_view('hermes-blueprint:blueprint')" in card
     assert len(card) < 900
+
+
+def test_the_hook_counts_user_turns_per_phase(bp):
+    bp.idea("start padel")
+    hook = dict(bp.ctx.hooks)["pre_llm_call"]
+    hook(session_id="s1", turn_id="a")
+    hook(session_id="s1", turn_id="a")             # the same turn twice counts once
+    hook(session_id="s1", turn_id="b")
+    project = bp.store.bound_project("s1")
+    assert bp.store.turn_counts(project.id) == {1: 2}
+    status = bp.ok("idea_phase", action="status")
+    assert not any("reply from the user" in m for m in status.get("gate_missing", []))
+
+
+def test_plan_submit_accepts_json_strings_and_top_level_keys():
+    from hermes_blueprint import planning
+    plan = {"shape": "single_artifact", "units": [{"id": "U1"}], "gates": []}
+    assert planning.plan_from_args({"plan": json.dumps(plan)}) == plan
+    assert planning.plan_from_args({"plan": {"plan": plan}}) == plan
+    assert planning.plan_from_args({"action": "submit", **plan}) == plan
